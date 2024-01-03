@@ -31,6 +31,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    'polls.apps.PollsConfig',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -47,6 +48,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+    # for django-log-request-id
+    'log_request_id.middleware.RequestIDMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -121,3 +125,50 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'filters': {
+        'request_id': {
+            '()': 'log_request_id.filters.RequestIDFilter'
+        }
+    },
+    'formatters': {
+        'standard': {
+            'format': '%(levelname)-8s [%(asctime)s] [%(request_id)s] %(name)s: %(message)s'
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'filters': ['request_id'],
+            'formatter': 'standard',
+        },
+    },
+    'loggers': {
+        # 「"GET /polls/ HTTP/1.1" 200 14」のようなログを出すのは django.server
+        'django.server': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        # pollsアプリのログを出力する
+        'polls': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        # SQLのログも出力してする
+        'django.db.backends': {
+          'level': 'DEBUG',
+          'handlers': ['console'],
+        },
+    }
+}
+
+# リクエストヘッダに `X-Request-ID` を追加すると、request.METAには以下のキーで値が設定される
+LOG_REQUEST_ID_HEADER = 'HTTP_X_REQUEST_ID'
+# リクエストヘッダに `X-Request-ID` がない場合、 request-id を生成する
+GENERATE_REQUEST_ID_IF_NOT_IN_HEADER = True
